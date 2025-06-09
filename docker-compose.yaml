@@ -18,6 +18,10 @@ services:
       - PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       - --advertise-kafka-addr
       - PLAINTEXT://redpanda:29092,PLAINTEXT_HOST://localhost:9092
+    environment:
+      SERVICE_NAME: Stats streaming
+      KAFKA_BROKER: redpanda:29092
+      TOPIC_NAME: history-topic
     healthcheck:
       test: ["CMD", "rpk", "cluster", "info"]
       interval: 10s
