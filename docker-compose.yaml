@@ -1,0 +1,58 @@
+services:
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:latest
+    container_name: redpanda
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+      - "9644:9644"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    command:
+      - redpanda
+      - start
+      - --node-id
+      - "0"
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:29092,PLAINTEXT_HOST://localhost:9092
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  generator:
+    build: ./microservices/generator
+    container_name: generator
+    volumes:
+      - ./microservices/generator:/app # mounts the local code into the container
+      - ./data:/app/data # mounts the local data into the container
+    command: python /app/app.py
+    environment:
+      SERVICE_NAME: History Generator
+      KAFKA_BROKER: redpanda:29092
+      TOPIC_NAME: history-topic
+      DATASET_ROOT_DIR: /app/data
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  consumer:
+    build: ./microservices/consumer
+    container_name: consumer
+    volumes:
+      - ./microservices/consumer:/app
+    command: faust -A app worker -l info
+    environment:
+      SERVICE_NAME: History Consumer
+      KAFKA_BROKER: redpanda:29092
+      TOPIC_NAME: history-topic
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+volumes:
+  redpanda_data:
